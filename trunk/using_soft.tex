@@ -1,0 +1,63 @@
+\section{Using FADAtool}
+The following sections explain the input and the output of \verb|FADAtool|. This command line tool has many options explained when executing \verb|FADAtool -h| or \verb|FADAtool --help|. 
+\subsection{Input Program Format}
+\verb|FADAtool| takes a C program as input by using the option \verb|-i program_name.c|. However, we do not handle all the C language. Our frontend parser has the following limitations:
+\begin{itemize}
+ \item User defined types are supported only with simple {\texttt typedef} declarations.
+ \item C for-loops are considered as regular static for-loops with a simple stride counter, upper and lower bounds. More complicated shapes of C-for loops are not handled.
+ \item Pre and Post-increment operators are not allowed within expressions.
+ \item Out input C language support special \verb|#pragma fada| used to declare any static assertion helping the code analysis. This pragma is attached to the statement just after it. Other pragmas are not supported, and the current version of the tool may crash if other pragmas are used!
+\end{itemize}
+To better understand our C subset used as input format to \verb|FADAtool|, we invite the reader to study the program examples delivered with source codes package of FADA. 
+\subsection{Output}
+This section illustrates the outputs of \verb|FADAtool|, which are data flow dependences (quasts). In addition to the console output, \verb|FADAtool| can generate HTML pages if appropriate tools have been installed, see Section~\ref{fada_prerequis}). The HTML pages contain exactly the same information printed on the console, but in a better look.
+
+\subsubsection{The Console Output}
+First, we show some output result for standard static control programs. For non static control programs, data dependences are more complex, so the output is also complex. Let start by illustrating the output of \verb|FADAtool| executed on a static control program, then we explain how things change in case of non static control programs.
+
+%\paragraph{Static Control Programs}
+\input{use_soft_scp.tex}
+
+%\paragraph{Non Static Control Programs}
+\input{use_soft_dcp.tex}
+
+\subsubsection{The HTML Output}
+FADA toolkit can provide results in HTML format by using \verb|--format| option. Let us do it for the example {\texttt max.c} previously shown in Figure~\ref{pgm:max_vect}. 
+
+\begin{verbatim}
+$ fadatool -i max.c --format=html+tex
+\end{verbatim}
+
+If we focus on the source of \verb|max| read by the last statement we got that :
+\begin{figure}
+ \begin{center}
+ \includegraphics[scale=0.60]{html_tex.png}
+\end{center}
+\caption{HTML Output for the example of Figure~\ref{pgm:max_vect}}
+\label{output:html}
+\end{figure}
+
+Here the source of a variable is given in a flat way: the source operation followed by the condition of its validity. The condition is normalised in a DNF form, disjunction (lines) of conjunctions (conjunction of inequations are in a single line).
+
+For example, value of \verb|max| read by $S_4$ during iteration \verb|i| comes from $S_0$ if  $i_3^0 < 1 \vee N < 1 + i_3^0$. This condition ensures that the source is $S_0$ only if no instance of $S_3$ were executed.
+
+For that example, \verb|FADAtool| was not able to compute the exact source operation. But it gives its exact description : $i_3^0 = max_{lex} \{ ( i_w ) / max \langle S_{2}^{(i)} \rangle  < V \langle S_{2}^{(i_w)} \rangle  [ i_w] \}$.
+
+In fact, $i_3^0$ describes the lexicographic maximum (the last write operation) on a set defined by non affine constraints. Here, $i_w$ is an abstract variable used to define the elements of that set.
+
+The source is the {it last} instance of $S_3$ (the lexicographic maximum of the described set) writing in the variable \verb|max|. Since, this set is described by non affine constraints the source can not be evaluated.
+It seems pretty printed, but is indeed more complex to read than what we presented so far.
+In fact, all non affine entities (variables and array cells) are tagged by the instance of the operation in which they are referenced.
+They look like \verb|V <Operation> [Index]| where:
+\begin{itemize}
+ \item \verb|<Operation>| the operation that references the concerned entity. It looks like: $S_{ID}^{Instance}$  where $ID$ is the identifier of the statement, and $Instance$ its instance.
+\item \verb|[Index]| is the array access index. Non-affine laterals with in the index will be tagged in the same way, in that case tagged expressions may not be readable. \verb|A[B[i]+1]| will be tagged as : \verb|A<operation>[B<operation>[i]+1]|.
+\end{itemize}
+
+
+So $max \langle S_{2}^{(i)}\rangle$ should be read: \verb|max| referenced by the instance $i$ of $S_2$. In the same way $V \langle S_{2}^{(i_w)} \rangle  [ i_w]$ is $V[i_w]$ referenced by the instance $i_w$ of $S_2$ (the if-condition).
+
+
+
+%\subsubsection{The Instance Wise Dataflow Graph}
+\input{use_soft_graph.tex}

@@ -1,0 +1,58 @@
+\paragraph{Non Static Control Programs}
+\begin{verbatim}
+ $ fadatool -i max.c
+\end{verbatim}
+
+\begin{figure}[!h]
+\begin{footnotesize}
+ \begin{verbatim}
+   int Max(int N, int *V){
+      int max
+      int i;
+      max=V[0];
+      for(i=1;i<N;i++)
+         if(max < V[i])
+            max=V[i];
+      return(max);
+      }
+ \end{verbatim}
+\begin{center}
+\begin{scriptsize}
+\end{scriptsize}
+\end{center}
+
+\end{footnotesize}
+\caption{{\texttt max.c}: Computing the Maximum of a Vector}
+\label{pgm:max_vect}
+\end{figure}
+The example in Figure~ \ref{pgm:max_vect} is a non static control program, because of the existence of a control (\verb|if|) with non affine condition.
+If we look at the source of \verb|max| read by the last statement, we get thanks to \verb|FADAtool|:
+\begin{verbatim}
+   max
+         if ( (i_3_0 >= 1) and (N >= 1+i_3_0) )
+            < 3 : i_3_0 >
+         else
+            < 0 :  >
+\end{verbatim}
+
+Here, because non static control nature of the input program, analysing precise data flow dependences can be done by approximation \cite{barthou_thesis}. For this purpose, \verb|FADAtool| introduces a new parameter (\verb|i_3_0|). Some formal properties on this new parameter are defined too. Let have a close look to one of them:
+\begin{verbatim}
+( i_3_0 )= Max_lex { ( i_w ) \     max < V [ i_w] }
+\end{verbatim}
+
+In a more readable way, the above property is equivalent to 
+$$
+i_3^0 = max_{\preceq} \{ i_w \backslash  max < V[i_w] \}
+$$
+where $\preceq$ is the lexicographic relation.
+
+Any introduced new parameter is written in the format \verb|lc_ID_COMMONITERATION| where
+\begin{itemize}
+ \item \verb|lc| is a loop counter in the original program. It is a way to say that the new parameter represents {\it a value for a loop counter}.
+ \item \verb|ID| is an identifier of an assignment which writes the conflictual variable.
+ \item \verb|COMMONITERATION| gives the number of the common iterations (of outer loops) between the read and the write operations.
+\end{itemize}
+
+That means that \verb|i_3_0| is the last iteration for the \verb|i|-loop, and for which the assignment \verb|max = V[i];| is executed. Unfortunately, for the example of  Figure~ \ref{pgm:max_vect}, it is not possible to  statically compute \verb|i_3_0|, because it depends on the data input of the program.
+
+

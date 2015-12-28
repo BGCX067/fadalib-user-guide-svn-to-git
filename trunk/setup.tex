@@ -1,0 +1,55 @@
+\section{Installation of FADA toolkit}
+FADA toolkit compilation requires two libraries:
+\begin{description}
+ \item[piplib:] FADA toolkit works with the version 1.3.6, accessible here  \cite{piplib_website}.
+ \item[BGL:] the Boost Graph Library (we tested the version 1.39.0). You can get it here \begin{footnotesize}\verb|http://www.boost.org/| \end{footnotesize}
+ \end{description}
+Unlike \verb|piplib|, \verb|BGL| is a header-only library. No installation is required for BGL. \verb|piplib| have to be previously installed.
+
+FADA toolkit sources can be downloaded from \cite{fadalib_website}. Unpack it into a directory \verb|$FADA_ROOT|. Usual installation commands are :
+\begin{verbatim}
+$ cd $FADA_ROOT
+$ ./configure
+$ make
+\end{verbatim}
+
+and optionally 
+
+\begin{verbatim}
+$ make install
+\end{verbatim}
+
+
+The configure script checks for \verb|libpiplib64.so| and \verb|BGL| headers, and may not be able to find it if its installation was redirected to non standard directories. In this case, you need to run the \verb|./configure| script with the \verb|--with-pip-lib|, \verb|--with-pip-inlcude| and \verb|--with-boost|  options:
+
+\begin{footnotesize}
+\begin{verbatim}
+
+$ ./configure --with-pip-lib=PIP_LIB_DIR   --with-pip-include=PIP_INCLUDE_DIR
+              --with-boost=BOOST_DIR
+
+\end{verbatim}
+\end{footnotesize}
+
+You can test the installation by doing:
+
+\begin{verbatim}
+
+$ cd $FADA_ROOT/examples/tests
+$ make test
+
+\end{verbatim}
+
+\subsection{FADA Software Prerequisites Summary}
+\label{fada_prerequis}
+\begin{enumerate}
+\item You may have to add the path of \verb|libpiplib64.so| into the variable \verb|LD_LIBRARY_PATH|.
+ \item \verb|FADAtool| uses \verb|gcc| to preprocess inputfiles ( \verb|-E| option). \verb|gcc| is required.
+ \item You may also need a web browser to explore HTML pages and view pictures produced by our tool. The default browser is \verb|firefox|.
+ \item You may also need to install \textbf{GraphViz} tool suites (especially \verb|dot|) and \verb|latex2html| : these tools are necessary to convert \verb|.dot| and \verb|.tex| files produced by FADA toolkit to \verb|.png| pictures and \verb|.html| pages.
+ \item FADAtool can produce \verb|.vcg| graphs, you may need a vcgviewer to visualize our output (here a good software \begin{small}\verb|http://code.google.com/p/vcgviewer/|                                                                                                                       \end{small}).
+\end{enumerate}
+
+
+% If you want to use \verb|FADAtool| for producing HTML outputs, you would also need to install the \verb|GraphViz| toolsuites (especially \verb|dot|) and \verb|latex2html|: these tools are necessary to convert \verb|.dot| and \verb|.tex| files produced by FADA toolkit to \verb|.png| pictures and \verb|.html| pages. \verb|FADAtool| needs also \verb|gcc| to be installed in order to preprocess input files.
+% 

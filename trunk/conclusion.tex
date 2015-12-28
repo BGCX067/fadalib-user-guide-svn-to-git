@@ -1,0 +1,33 @@
+
+
+\section{Conclusion}
+{\it FADA Toolkit} is a partial implementation of the FADA code analysis \cite{barthou_thesis}. \verb|FADAlib| is a C++ library, with a C++ API. The user may use it as an external library for data dependence analysis. The input of \verb|FADAlib| is either an AST (built with C++ classes) or low level information of references and domains (also built with C++ classes). 
+
+\verb|FADAtool| is a command line invocation of FADA analysis. It parses a C-like program, computes its data dependences and print them to the user on the console and/or in HTML pages.
+
+Currently, both  \verb|FADAlib| and  \verb|FADAtool| are open source software intended for academic research purposes. In some cases, the computation time of these tools is expensive because of the complexity of data flow analysis of irregular programs, and also because of the internal usage of PIP solver. The quality of FADAlib would be improved step by step in the future. 
+
+One of our future plans is to connect FADAlib to gcc, especially to a branch called Graphite. 
+
+\section*{License}
+This program is free software: you can redistribute it and/or modify
+it under the terms of the LGPL GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the LGNU Libray General Public License
+along with this program.  If not, see \texttt{http://www.gnu.org/licenses}
+
+\section*{Contributors}
+Please send suggestions, bug reports and remarks to:
+\begin{enumerate}
+ \item \texttt{Marouane.Belaoucha@prism.uvsq.fr}, PhD student, principal contributor. 
+ \item \texttt{Denis.Barthou@prism.uvsq.fr}, Associate professor, FADA's father. 
+ \item \texttt{Sid.Touati@uvsq.fr}, Associate professor, supervisor.
+
+We would like to thank Christophe Alias for his support, as well as for having accepted to share his efforts with us. FADAlib was largely inspired by his work on \textbf{BeeCl@ck}.
+\end{enumerate}

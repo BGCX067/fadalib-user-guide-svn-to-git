@@ -1,0 +1,114 @@
+\paragraph{Static Control Programs}
+\begin{figure}[!h]
+\begin{footnotesize}
+\begin{lstlisting}
+void    MatrixMultiply(int A[N][L], int B[L][M], int T[N][M]){
+int i;
+int j;
+int k;
+for(i=0;i<N;i++)
+   for(j=0;j<M;j++){
+        T[i][j]=0;
+        for(k=0;k<L;k++)
+                T[i][j]+=A[i][k]*B[k][j];
+        }
+\end{lstlisting}
+\end{footnotesize}
+\caption{\texttt{MatMul.c}: Static Control Program Example}
+\label{pgm:matmul}
+\end{figure}
+
+
+
+
+\begin{figure}[!h]
+\begin{scriptsize}
+\begin{verbatim}
+ $ fadatool -i MatMul.c
+/////////////////////////////////////////////////
+Symbolic constants are  = ( N, M, L )
+/////////////////////////////////////////////////
+********************************************
+ID		:0
+Counters	:(  )
+Domain		:true
+Written variable:
+Read variable:
+********************************************
+ID		:1
+Counters	:( i )
+Domain		:((i >= 0) and (i <= N-1))
+Written variable:
+Read variable:
+********************************************
+ID		:2
+Counters	:( i, j )
+Domain		:(((i >= 0) and (i <= N-1))) and ((j >= 0) and (j <= M-1))
+Written variable:   T[ i ][ j ]
+Read variable:
+********************************************
+ID		:3
+Counters	:( i, j )
+Domain		:(((i >= 0) and (i <= N-1))) and ((j >= 0) and (j <= M-1))
+Written variable:
+Read variable:
+********************************************
+ID		:4
+Counters	:( i, j, k )
+Domain		:((((i >= 0) and (i <= N-1))) and ((j >= 0) 
+                                  and (j <= M-1))) and ((k >= 0) and (k <= L-1))
+Written variable:   T[ i ][ j ]
+Read variable:
+   T[ i ][ j ]
+
+         if ( k >= 1 )
+            < 4 : i, j, k-1 > 
+         else
+            < 2 : i, j >
+
+   A[ i ][ k ]
+      _|_
+
+   B[ k ][ j ]
+      _|_
+
+/////////////////////////////////////////////////
+================ Parallel Loops Detector:
+      Parallel loops are : ( i, j ) 
+================================
+\end{verbatim}
+\end{scriptsize}
+\caption{Console Output for Dataflow Analysis of \texttt{MatMul.c} (Figure~\ref{pgm:matmul})}
+\label{output:matmul}
+\end{figure}
+
+\verb|FADAtool| starts by detecting the symbolic constants of the program (first line in Figure~\ref{output:matmul}). Then it computes the guarded references from the statements of the original program. In fact, \verb|FADAtool| does not need the AST of the program. The required information are:
+\begin{itemize}
+ \item Which variables are read and written,
+ \item within which loops (defined by their counters),
+ \item and, what is the condition for which these variables can be read and written.
+\end{itemize}
+
+For example, the second assignment (\verb|ID#4|) reads three references (\verb|T[i][j]|, \verb|A[i][k]|, and \verb|B[k][j]|), one is written (\verb|T[i][j]|). These references are enclosed by loops \verb|i, j, k|, and guarded by the domain condition: ($ 0 \leq i \leq N-1,  0 \leq j \leq M-1, 0 \leq k \leq L-1$).
+
+For each read variable, \verb|FADAtool| computes its source and expresses it in a quast. So, the definition of \verb|T[i][j]| read by \verb|ID#4| during iteration \verb|(i, j, k)| is (also given in Figure~\ref{output:matmul}):
+
+
+\begin{verbatim}
+         if ( k >= 1 )
+            < 4 : i, j, k-1 > 
+         else
+            < 2 : i, j >
+\end{verbatim}
+
+And the source of \verb|A[i][j]| (read by \verb|ID#4| during the iteration \verb|(i, j, k)|) is :
+\begin{verbatim}
+      _|_
+\end{verbatim}
+In the console output, $\perp$ or Bottom  means that the source is undefined (out of analysedyzed scope). \verb|<ID : ITERATION_VECTOR >|  means that the value was produced by the statement \verb|ID|, during the iteration \verb|ITERATION_VECTOR|.
+
+
+The exact source are computed by \verb|FADAtool| for \verb|T[i][j]|. It is presented as a quast, and should be read as : if \verb|A[i][j]| is read during the first iteration of the \verb|k|-loop, so its value is produced by assignment \verb|ID#2|. Otherwise, it its value is produced by assignment \verb|ID#4| executed during the previous iteration of the \verb|k|-loop, but int the same \verb|i-j|-loop iteration.
+
+
+The third part of the output plots the parallel loops. Out parallel loops detector is elementary, it considers loops which do not carry dependences. This part is under constant improvments.

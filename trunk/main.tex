@@ -1,0 +1,45 @@
+\documentclass[a4paper,11pt]{article}
+
+\usepackage{graphicx,fullpage}
+\usepackage{listings}
+
+
+%opening
+\title{Dataflow Analysis for Irregular Programs.\\FADA Toolkit User's Guide}
+\author{Marouane \textsc{Belaoucha} and Denis \textsc{Barthou} and Sid-Ahmed-Ali \textsc{Touati}\\
+University of Versailles Saint-Quentin en Yvelines, France
+}
+\begin{document}
+\lstset{language=C++,
+	basicstyle=\scriptsize,
+	keywordstyle=\bfseries,
+	numbers=left,
+	numberstyle=\tiny,
+	frameround=fttt
+	}
+
+\maketitle
+
+\begin{abstract}
+Usual data dependence analysis works for a restricted set of programs, mainly the so called static control programs. However, usual C codes fragments for instance do not fit in this class of programs,  consequently current compilers do not have precise data dependence analysis for them. With the future massive introduction of multicore processors, desktop applications become the future candidate for code analysis and automatic parallelisation. In this context, FADA extends the array data dependence analysis to take into account irregular code structures such that while-loops, function calls, non affine array accesses, if-then-else, etc. Fuzzy Array Dependence Analysis (FADA) is more powerful but requires more compilation time. Other applications are also possible and are described in \cite{d2.3.2}.
+
+We present a user documentation for the FADA toolkit. FADA toolkit is a partial C++ implementation of the FADA analysis \cite{barthou_thesis}. It is an instance wise dependence analysis for non static control programs, commonly called irregular codes. \verb|FADAlib| is its C++ API, allowing its usage a library for compilers and code analysers. \verb|FADAtool| is the command line tool of the FADA toolkit. This manual shows how to use\verb|FADAlib| and  \verb|FADAtool|.
+\end{abstract}
+\tableofcontents
+
+\input{intro.tex}
+
+\input{setup.tex}
+ 
+\input{using_soft.tex}
+
+\input{using_lib.tex}
+
+\input{conclusion.tex}
+
+\bibliographystyle{plain}
+
+\bibliography{ma_bdd}
+
+
+\end{document}

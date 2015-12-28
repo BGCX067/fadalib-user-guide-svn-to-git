@@ -1,0 +1,662 @@
+\section{Using the FADAlib}
+We remind that \verb|FADAcore| does not need the AST to perform analysis. Even if we get a C-program as an input, \verb|FADAtool| computes the guarded references (and many other useful information) in order to be able to perform the dependence analysis.
+
+The \verb|FADAtool| (as well as the \verb|FADAlib|) processing is performed in three steps:
+\begin{enumerate}
+ \item Parse a function and build its AST (Abstract Syntax Tree).
+ \item Lower the AST into a vector of ordered and governed references.
+ \item Perform the FADA analysis and compute the source of each read memory cell (\verb|FADAcore| step).
+\end{enumerate}
+
+
+
+% \textbf{What is a lowered governed references ?} We explain that through an example (fig.\ref{pgm:governed})
+% \begin{itemize}
+%  \item \textbf{Enclosing loops:} the vector of loops enclosing references.
+%  \item \textbf{Domain constraints:} are the gard for references. i.e.condition for which references can occur.
+%  \item \textbf{Read/Written references:} the list of read and written variables.
+% \end{itemize}
+% 
+% 
+% % à mettre un example sur le preprocessing step
+% Fig\ref{pgm:governed}. shows a simple example, and how we can extract utile information from the AST of a program (fig.\ref{pgm:governed}). In the real implementation, thing are mush complicated because even controls (here for loops) can reference some memory cells. And that requires creating references for both: controls and assignments.
+
+
+That gives users three input choices for the \verb|FADAlib| :
+\begin{enumerate}
+ \item Input C programs (as for \verb|FADAtool|),
+ \item Build by C++constructor an AST, and use the lowering functions in order to build references,
+ \item or build manually the governed references (a direct input format to  \verb|FADAcore|).
+\end{enumerate}
+
+
+We start by explaining how to build AST and how to lower it into guarded references because it is easier to understand. After that, we demonstrate how to build directly governed references and what changes must be performed, what details have to be respected.
+
+\subsection{First Level of Using FADAlib: Parsing C-like Programs}
+
+\begin{footnotesize}
+\begin{lstlisting}[frame=single,framerule=0pt]
+#include "fadalib.h"
+using namespace fada;
+
+int	main(int argc, char* argv[]){
+
+Program pgm;
+
+try{
+	pgm.Parse("your_file_name");
+	pgm.ComputeSourcesForAllReadVariables();
+	pgm.PrintNormalized(1);
+	}
+catch(...){
+	exit(EXIT_FAILURE);
+	}
+}
+\end{lstlisting}
+
+\end{footnotesize}
+
+Here, we start by parsing a program, then apply the FADA analysis to compute the sources of all read variables, finally print them. The user can set processing and/or printing options accessible by : \verb|Options* Program::GetOptions()|. For example if we want to activate/deactivate the structural analysis, we can do something like:
+\begin{verbatim}
+ pgm.GetOptions()->processing.apply_structural_analysis=true;
+\end{verbatim}
+
+
+\subsection{Second Level of Using FADAlib: Building an AST by C++ Constructors}
+A program is a list of \verb|Statement| objects, which represent statements. A statement can be an \verb|Assignment|, or \verb|Control| (an assignment and control structure respectively). We can build valid statements by using the following C++ methods:
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Statement::Statement(Assignment* __assign) 
+\end{lstlisting}
+Creates an assignment statement .\\
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Statement::Statement(Control* __control)
+\end{lstlisting}
+Creates a control statement.\\
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Statement::Enclose(Statement* __s,bool __else_part=false)
+\end{lstlisting}
+This methods pushes back the statement \verb|__s| in the vector of enclosed statements. If \verb|__else_part| enabled, the method adds \verb|__s| in the else part. \\
+
+
+\paragraph{Example:} during this section we process the example of Figure~\ref{pgm:max2}:
+
+\begin{figure}
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+for(i=0;i<=N;i++) {
+   max=0;
+   while(max < fct(i))
+     if( max > T[i])
+        max=T[i];
+     else
+        max=max;
+   }
+\end{lstlisting}
+\caption{A Simple Input Program Used to Demonstrate How to Build Input Objects for FADAlib}
+\label{pgm:max2}
+\end{figure}
+
+
+\subsubsection{Building Assignments}
+Assignments are characterised by their left-hand-side (LHS) variable or array cell, and the expression in the right-hand-side(RHS). A valid \verb|Assignment| object can be built using :
+\begin{lstlisting}[frame=single,framerule=0pt]
+Assignment::Assignment(string array_name,
+                  FADA_Index* lhs_index, Expression* rhs) 
+\end{lstlisting}
+This constructor creates the assignment: \verb|array_name[lhs_index]=rhs|.
+\begin{lstlisting}[frame=single,framerule=0pt]
+Assignment::Assignment(string var_name, Expression* __rhs) 
+\end{lstlisting}
+It creates the assignment: \verb|var_name=rhs|.
+\begin{lstlisting}[frame=single,framerule=0pt]
+Assignment::Assignment(Expression* __rhs) 
+\end{lstlisting}
+Assignment on no variable, it handles the case of expressions producing no result.
+
+\paragraph{Example}
+
+Below we show how to build the three assignments:
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+
+           // Building assignment "max=0;"
+ Assignment* max_equal_zero=new Assignment("max", new Expression (0));
+
+           // Building " max=max;"
+ Assignment* max_equal_max=new Assignment("max",new Expression("max"));
+
+           // Building "max=T[i]';"
+ Expression* T_i=new Expression("T");
+ T_i->AddIndex(new Expression("i"));
+ Assignment* max_equal_T_i=new Assignment("max",T_i);
+
+	   //Printing built objects
+ max_equal_T_i->Print();cout<<"\n";
+ max_equal_max->Print();cout<<"\n";
+ max_equal_zero->Print();cout<<"\n";
+
+\end{lstlisting}
+
+\subsubsection{Building Control Structures}
+Simple for-loops, while-loops and conditionals and alternatives can be built as a \verb|Control| object using :
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Control::Control(string __lc, Expression* __lb, Expression* __ub)
+\end{lstlisting}
+builds a for-construct, \verb|__lc| is the loop-counter name where \verb|__lb| and \verb|__ub| are the lower and upper bounds.\\
+\begin{lstlisting}[frame=single,framerule=0pt]
+Control:: Control(string __lc, Condition* __c)
+\end{lstlisting}
+builds a while-construct, \verb|__lc| is the loop-counter-name, \verb|__c| is the while-condition.\\
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Control:: Control(Condition* __c)
+\end{lstlisting}
+
+We note that loops need loop-counters, used as loop-identifiers, so they have to be distinct each to others. If a loop has not a loop-counter (a typical case of a while-loop), a virtual loop-counter is created: its initial value is set to 1 before starting loop-recurrence, incremented by one at the end of each iteration,  no explicit upper-bound.
+
+\paragraph{Examples:}
+Building a for-loop
+\begin{lstlisting}[frame=single,framerule=0pt]
+ Expression zero= 0;
+ Expression N   =(std::string)"N";
+ Control* __for=new Control("i",&zero,&N);
+ cout<<"\n"<<__for->PrettyPrint_str();
+
+\end{lstlisting}
+building a while-loop
+\begin{lstlisting}[frame=single,framerule=0pt]
+ Expression max=(std::string)"max";
+ Expression i=(std::string)"i";
+
+ Expression fct_i=(std::string)"fct";
+ fct_i.AddArgument(&i);
+
+ Inequation while_ineq=i < fct_i;
+ string virtual_counter="W";
+ Control* __while=new Control(virtual_counter,new Condition(&while_ineq));
+ cout<<"\n"<<__while->PrettyPrint_str();
+\end{lstlisting}
+Building an alternative
+\begin{lstlisting}[frame=single,framerule=0pt]
+ Condition* if_cond=new Condition(new Inequation(&max,FADA_GREATER,T_i));
+ Control* __if=new Control(if_cond);
+ cout<<"\n"<<__if->PrettyPrint_str();
+\end{lstlisting}
+\paragraph{Remark:} The variables used in a scope (for example \verb|T_i| in the listing above) are defined and initialised in previous listings. All objects created and initialised are used later.
+
+
+\subsubsection{Building An AST}
+An AST is a special \verb|Statement|. Below we show how to build the AST of the example of Figure~\ref{pgm:max2}:
+\begin{lstlisting}[frame=single,framerule=0pt]
+
+ Statement* if_construct= new Statement(__if);
+ if_construct->Enclose(max_equal_T_i);
+ if_construct->Enclose(max_equal_max,true);
+
+ Statement* while_construct=new Statement(__while);
+ while_construct->Enclose(if_construct);
+
+ Statement* for_construct=new Statement(__for);
+ for_construct->Enclose(max_equal_zero);
+ for_construct->Enclose(while_construct);
+
+ Statement* AST=new Statement();
+ AST->Enclose(for_construct);
+
+ cout<<AST->Regenerate_C_Code("\n");
+
+\end{lstlisting}
+
+\subsubsection{Building a Program}
+
+When all statements are created, you have to create a valid \verb|Program| object in order to continue FADA process. A \verb|Program| object has the following properties:
+\begin{itemize}
+ \item \verb|Program::label| is the name of the program. It will be used as default prefix for output file-names.
+ \item \verb|Statement* Program::syntax_tree| is the AST of the program.
+\end{itemize}
+
+\paragraph{Example} :
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Program* program=new Program();
+program->SetLabel("MyProgramName");
+program->SetSyntaxTree(AST);
+
+cout<<"\n"<<program->Generate_C_str();
+\end{lstlisting}
+
+\subsubsection{The FADA Processing}
+You should know that a pre-process step is performed implicitly when calling the \verb|FADAcore|.
+\paragraph{Pre-processing}
+The pre-processing performs multiple tasks:
+\begin{itemize}
+ \item Connecting all AST-objects to each other.
+ \item Compute the sequential order between statements.
+ \item Be sure that different loop-counter-names are used for different loops, and rename them if necessary.
+ \item Identify symbolic constants (scalars which are never modified in the program).
+ \item Compute the read and write references and their domains (information required by \verb|FADAcore|), and connect them to the AST (mainly for readability reasons).
+ \item Remove symbolic constants and loop counters from the references (useless \verb|FADAcore| computation because their sources are obviously known).
+ \item Tag non affine array indexes.
+ \item Normalise domain constraints into a disjunction of conjunctions form.
+ \item For all references, generate the list of all possible sources, and order them: from the closest (last write operation) to the farthest (first write operation).
+
+\end{itemize}
+
+The pre-processing step fills the following properties which are required for the \verb|FADAcore| processing:
+\begin{itemize}
+ \item \lstinline|vector<string> Program::global_parameters| : symbolic constants.
+ \item \lstinline|vector<References*> Program::normalized_domain| : predicated read and write references.
+ \item \lstinline|vector<vector<bool> > Program::sequential_precedence| : the sequential order between statements.
+ \item \lstinline|LDemonstrator* Program::global_properties| : properties on irregular while loops.
+ \item \lstinline|Read_Reference::schedule| : ordered dependent operations.
+\end{itemize}
+
+\verb|vector| here is the regular STL container. All previous properties are private, you have to use appropriate getters to access them.
+
+
+\paragraph{FADAcore Processing}
+The FADA analysis is performed by calling :
+\begin{lstlisting}[frame=single,framerule=0pt]
+void Program::ComputeSourceForAllReadVariables(void)
+\end{lstlisting}
+Before performing the analysis, you can specify the processing options using:
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+void Program::SetOptions(Options* __otptions);
+\end{lstlisting}
+
+For example, if we want to activate the structural analysis :
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Options options;
+options.processing.apply_structural_analysis=true;
+program->SetOptions(&options);
+\end{lstlisting}
+
+\paragraph{Printing Results}
+FADA results can be printed using the following methods:
+\begin{itemize}
+ \item \lstinline|Program::Generate_c(string file_name) | generates a C program for the build AST, result is written in the file \verb|file_name|. Another variant is used to get it in a string (\lstinline|string Program::Generate_C_str()|).
+\item \lstinline|Program::PrintNormalized(int __level) | dumps the vector of normalised references. Two levels are usable: 0 to print references with their domain constrains and enclosing loops (available after the preprocessing step), and 1 adds the source of each read variable (available after the FADA processing).\\
+\item \lstinline|Program::Generate_GraphViz_Graph(string file_name,...)|  provides a graphviz dot file and transforms it to a png picture if dot is installed.
+
+\item \verb|string Program::ToHtml()|  provides results in HTML pages generated in the directory \verb|Program::options.io.output_directory| after calling this method. And it returns the full file name of the index page.\\
+\end{itemize}
+
+% string ToHtml(string dir,bool dot,bool tex,bool flat,bool alphas,bool fuzzy,bool ppts);
+
+
+Definitions (FADA processing results) are summarised for each statement in \lstinline|References* Statement::references|, directly accessible by calling its getter \lstinline|Statement::GetReferences()|.
+
+A \lstinline|References| object is constituted of :
+\begin{itemize}
+\item \lstinline|int References::id| : an identifier.
+\item \lstinline|vector<Written_Reference*> References::written_variables| : all written variables by this statement.
+\item \lstinline|vector<Read_Reference*> References::read_variables| : all read variables.
+\item \lstinline|vector<string> References::enclosing_counters| : enclosing loops.
+\item \lstinline|Condition* References::domain| : domain constrains.
+\item \lstinline|Statement* References::origin| : the original statement (within the built AST).
+\end{itemize}
+
+All the above fields are private, you have to use getters to access them, or appropriate constructors to set them.
+
+All these properties are built by the pre-processing mechanism, otherwise, you have to fill them yourself with a correct information.
+
+After a FADA processing the definition of a read memory cell can be accessible by calling the getter \lstinline|Quast* Read_Reference::GetDefinition()|.
+
+
+\subsection{Third Level of Using FADAlib: Building References and Domain Constraints as a Direct Input to FADAcore}
+
+So far, we presented two ways to prepare an input to perform the FADA analysis on (parsing the source C code, or building an AST). Things were a bit natural an obvious. This section presents the core and the lowest level of the FADA analysis, that is providing direct information to the \verb|FADAcore| layer: this last level is complex and reserved for expert users. We recommend a  previous study of FADA before reading this section. Otherwise, the two previous input levels are sufficient to use the FADA toolkit.
+
+In this third level, we have to set a valid input for the \verb|FADAcore|, that is to build references with  their domains. This requires lot of information to be provided correctly.
+
+For the remaining of the section forget about AST, statements, assignments and control structures. All we want is a list of ordered and guarded references, described by the class \verb|References|.
+
+
+\subsubsection{Building Valid References Instances}
+
+The information to provide are:
+\begin{itemize}
+ \item Choose different identifiers for different objects.
+ \item Build valid objects for read and written memory cells (\verb|Read_Reference| and \verb|Written_Reference| classes).
+ \item Put enclosing loop identifiers in a correct order.
+ \item Build the domain constraints:
+\end{itemize}
+
+We can set them using the following methods:
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+     References::References (int __id,Condition* __domain);
+void AddReadReference       (Read_Reference*);
+void AddWrittenReference    (Written_Reference*);
+void AddInnerCounter        (std::string);
+\end{lstlisting}
+
+
+\paragraph{Example}
+
+Let us reconsider the example of Figure~\ref{pgm:max2}). We can remark:
+
+\begin{itemize}
+\item The \verb|for|-construct  does not reference any conflictual variable.
+\item \verb|T[i]| is not written in this scope, it is useless to perform the analysis for it.
+\item \verb|max| is read by the while-condition, the if-conditions and the third assignment. These three references have exactly the same source.
+\end{itemize}
+
+
+\begin{figure}[!h]
+ \begin{verbatim}
+      for(i=0;i<=N;i++) {
+ID#0:    max=...;
+         while(...)
+            if(...)
+ID#1:         max=...;
+            else
+ID#2:         max= ... max ...;
+   }
+ \end{verbatim}
+\caption{Simplified Program Example Extracted from Figure~\ref{pgm:max2}}
+\label{pgm:simplified_max}
+\end{figure}
+
+The FADA processing can be simplified (Figure~\ref{pgm:simplified_max}) by focusing only on the conflictual variables and dropping all uninteresting references. We ignore \verb|T[i]| because it is not written in the program. And we compute only the source of \verb|max| read by the third assignment.
+Here how to build \verb|References| objects (We assume some expressions built previously :\verb|max|, \verb|fct_i|,\verb|T_i|):
+
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+Expression i("i");
+Expression N("N");
+Condition i_ge_0= (Inequation*)&(i>=0);
+Condition i_le_N=(Inequation*)&(i <=N);
+Condition for_domain= (i_ge_0 && i_le_N);
+
+for_domain.Print();
+
+References* from_assign_1=new References(0,&for_domain);
+from_assign_1->AddInnerCounter("i");
+from_assign_1->AddWrittenReference(new Written_Reference("max"));
+
+
+\end{lstlisting}
+The first assignment writes one variable \verb|max|, and does not read memory references. It is enclosed by the \verb|i|-loop.
+As you can remark, there is no statements, no controls and no AST. All the needed information here  are domains, loops identifiers and references.
+\begin{lstlisting}[frame=single,framerule=0pt]
+
+        // Building references for "max=T[i]"
+Condition max_less_fct_i= (Inequation*)&(max < fct_i);
+Condition max_greater_T_i=(Inequation*)&(max > T_i);
+
+vector<Expression*> instance;
+instance.push_back(&i);
+instance.push_back(&W);
+
+max_less_fct_i.Instanciate(10,&instance);
+max_greater_T_i.Instanciate(20,&instance);
+Condition for_while_domain= (for_domain &&  max_less_fct_i );
+Condition for_while_then_domain= (for_while_domain && max_greater_T_i);
+
+References* from_assign_2=new References(1,&for_while_then_domain);
+from_assign_2->AddWrittenReference(new Written_Reference("max"));
+from_assign_2->AddInnerCounter("i");
+from_assign_2->AddInnerCounter("W");
+
+\end{lstlisting}
+The second assignment writes \verb|max| and reads the reference \verb|T[i]| which is avoided here (never written). These references are enclosed by the \verb|i|-\verb|W|-loop.
+
+\begin{figure}[!h]
+\begin{lstlisting}[frame=single,framerule=0pt]
+
+// Building references for "max=max"
+Condition for_while_else_domain=
+	(for_while_domain && max_greater_T_i.Negate(true));
+References* from_assign_3=new References(2,&for_while_else_domain);
+from_assign_3->AddWrittenReference(new Written_Reference("max"));
+from_assign_3->AddInnerCounter("i");
+from_assign_3->AddInnerCounter("W");
+
+Read_Reference* rr=new Read_Reference("max");
+/* HERE WE HAVE TO BUILD SOMME EXTRA STUFF*/
+from_assign_3->AddReadReference(rr);
+\end{lstlisting}
+\caption{Building References for the Third Assignment. To be completed in Figure~\ref{code:schedules}}
+\label{code:to_be_completed}
+\end{figure}
+The object \verb|rr| needs advanced stuff, it will be updated in the next section. If we want to print built objects we can execute this code :
+
+\begin{lstlisting}[frame=single,framerule=0pt]
+from_assign_1->Print(0);
+from_assign_2->Print(0);
+from_assign_3->Print(0);
+\end{lstlisting}
+
+
+In the previous listings, we 
+\begin{itemize}
+\item defined an additional loop counter \verb|W| for the while loop.
+\item ignored references coming from the while and if conditions.
+\item tagged non affine inequations by empirical IDs. Here we choose \verb|10| for the while condition, and \verb|20| for the if-condition. In fact, IDs are not important them selves, the important is to use the same ID for constraints having the same origin. The \verb|Inequation::Negate(bool)| method, computes a negation of an Inequation, and clones the original right and left hand sides (so result will have the same TAG as the caller, that is very important).
+\item creating a \verb|Read_Reference| object needs special stuff, it will be within the next section (Figure~\ref{code:schedules})
+\end{itemize}
+
+
+% Tagging is a way to say that, an inequation, a condition an index or an expression comes from the statement \verb|__stmt| executed during the iteration \verb|__iter|. It is crucial to distinguish between entities having the same name and syntax but express different things.
+% 
+% If we focus on the case where we check the dependence between $S1$ and $S2$. Some constraints generated by FADA modelling are : $x > 100$, $x <= 100$ which express the validity of $S1$ and $S2$ respectively. They apparently are the negation one to other, but $x$ have not the same value in these two constraints. To distinguish between the two values we will instanciate them to :
+% \begin{itemize}
+%  \item \verb|x<1,i_w>    >  100|    : to be read like  $x$ read by the first if executed during iteration \verb|i=i_w| is greater than $100$.
+%  \item \verb|x<2,i_r>     <= 100|  : should be understood like, $x$ read by the second if during iteration \verb|i=i_r|.
+% is less or equal to $100$.
+% \end{itemize}
+% 
+% Here we materialize the difference between different values of the variable $x$.
+% 
+\subsubsection{Building Read\_Reference Objects}
+\paragraph{Read\_Reference}
+objects require 
+\begin{itemize}
+ \item to specify the name of the read variable
+ \item a copy of global symbolic constants in (\verb|Read_Reference::global_parameters|)
+ \item an appropriate order of all possible source operations \\(\verb|vector<ElementaryDependence*> Read_Reference::schedule|). The idea is to give to the closest operation, the highest priority. And the aim is to stop computing the source when we know for sure that the closest source has been reached
+\end{itemize}
+
+You can use these methods to construct Read\_Reference instances :
+\begin{footnotesize}\begin{lstlisting}[frame=single,framerule=0pt]
+Read_Reference(string);
+Read_Reference(string, FADA_Index*);
+void SetSchedule(vector<ElementaryDependence*>*);
+\end{lstlisting}
+\end{footnotesize}
+\paragraph{ElementaryDependence}
+This class describe a pair of producer/consumer operations. It is used (within \verb|Read_Reference| objects) to order consumers from the closest to the farthest.
+Basic \verb|ElementaryDependence| object must have:
+\begin{itemize}
+ \item A valid couple of read and write operation identifiers.
+ \item The deep of precedence (the common iteration). Must be between 0 and the number of common loops.
+\end{itemize}
+
+
+% FADA modeling constraints will be built according to these three integers by : 
+% \begin{itemize}
+%  \item Recovering constraints to be sure of read and write statements validity.
+%  \item Indexes equality, to be sure that read and write operations concerns the same array-cell.
+%  \item Lexicographic precedence constraints.
+% \end{itemize}
+
+%TODO Marouane, pourquoi tu ne mets pas ces instructions avant ? Pourquoi commences tu par faire un exemple que tu compl�tes apr�s ? 
+In order to complete the example of Figure~\ref{code:to_be_completed}, we add the following instructions before building \verb|from_assign_3|:
+\begin{figure}[!h]
+\begin{footnotesize}\begin{lstlisting}[frame=single,framerule=0pt]
+ vector<ElementaryDependence*> closest_sources;
+ closest_sources.push_back(new ElementaryDependence(2,2,1));
+ closest_sources.push_back(new ElementaryDependence(2,1,1));
+ closest_sources.push_back(new ElementaryDependence(2,0,1));  // we can stop here
+ closest_sources.push_back(new ElementaryDependence(2,2,0));
+ closest_sources.push_back(new ElementaryDependence(2,1,0));
+ closest_sources.push_back(new ElementaryDependence(2,0,0));  // no more sources
+
+ rr->SetSchedule(&closest_sources);
+
+\end{lstlisting}
+\end{footnotesize}
+\caption{Missing Instructions in the Code of Figure~\ref{code:to_be_completed}}
+\label{code:schedules}
+\end{figure}
+
+\subsubsection{FADAcore Processing}
+After building all references, you can prepare the FADAcore processing in a pre-processing step.
+
+\paragraph{Pre-processing}
+Before applying the FADAcore analysis, we have to :
+\begin{itemize}
+ \item Instantiate read, and write array indexes.
+ \item Normalise domain constraints and sort them into affine and non affine constraints.
+ \item Compute symbolic constants.
+ \item Compute some loop properties.
+ \item Indicate the textual order between statements.
+\end{itemize}
+
+The first three tasks can be performed by the global function :
+\begin{footnotesize}\begin{lstlisting}[frame=single,framerule=0pt]
+Preprocess (vector<References*>* __ref, vector<string>* __constants);
+\end{lstlisting}
+\end{footnotesize}
+
+The two last tasks are in charge of the user, explained below.
+
+\subparagraph{Compute Loop Properties}
+Loop properties are summarised within a \verb|LDemonstrator| object. Regular instructions are :
+\begin{footnotesize}\begin{lstlisting}[frame=single,framerule=0pt]
+LogicalClause*	LoopProperty(vector<string>* counters, string c, Inequation* loop_const);
+\end{lstlisting}
+\end{footnotesize}
+The first method generate the following clause : \\
+\begin{math}
+ \forall counters, c1, c2, loop\_const(counters,c1), c2 \leq c1 \Rightarrow loop\_const(counters, c2)
+\end{math}
+where :
+\begin{itemize}
+ \item counters : the vector of loops enclosing the concerned loop.
+ \item c : the loop counter of the concerned loop.
+ \item loop\_const : the non affine inequation coding the domain of the loop.
+\end{itemize}
+
+The clause describes the fact that if the loop condition is upheld for an iteration, so it is so for all previous iterations.
+
+For the example of Figure~\ref{pgm:simplified_max}, the \verb|FADAlib| instructions used to build properties on the while loops are:
+
+\begin{footnotesize}\begin{lstlisting}[frame=single,framerule=0pt]
+LDemonstrator* ppts=new LDemonstrator();
+vector<string> enclosing_loops;
+enclosing_loops.push_back("i");
+ppts->PUSHBACK(IrregularLoop(&enclosing_loops,"W", &max_less_fct_i));
+\end{lstlisting}
+\end{footnotesize}
+\subparagraph{Sequential Textual Order between Statements}
+The textual sequential order between references must be indicated correctly, because this information is critical for processing step. The matrix of sequential order of our simplified references of Figure~\ref{pgm:simplified_max} is: 
+
+\begin{footnotesize}\begin{lstlisting}[frame=single,framerule=0pt]
+vector<vector<bool> > sequential_order;
+sequential_order.resize(3);
+sequential_order[0].resize(3); sequential_order[1].resize(3); sequential_order[2].resize(3);
+sequential_order[0][0]=false;
+sequential_order[0][1]=true;
+sequential_order[0][2]=true;
+sequential_order[1][0]=false;
+sequential_order[1][1]=false;
+sequential_order[1][2]=false;
+sequential_order[2][0]=false;
+sequential_order[2][1]=false;
+sequential_order[2][2]=false;
+\end{lstlisting}\end{footnotesize}
+
+That means in the simplified program in Figure~\ref{pgm:simplified_max}:
+\begin{itemize}
+ \item References \verb|ID#0| precede those from \verb|ID#1| and \verb|ID#2|
+ \item There is no sequential order between \verb|ID#1| and \verb|ID#2|, because they come from different branches of an \verb|if-then-else| construct.
+\end{itemize}
+
+After doing a correct pre-processing step, FADAcore can be called as explained in the next paragraph.
+\paragraph{FADAcore Processing}
+By simply calling:
+\begin{footnotesize}
+\begin{lstlisting}[frame=single,framerule=0pt]
+void References::ComputeDefinitions(vector<string>* constants,
+                     vector<References*>* all_references,
+                     vector<vector<bool> >* sequential_order,
+                     LDemonstrator* loops_ppts,
+                     Options* options);
+\end{lstlisting}
+\end{footnotesize}
+
+\subparagraph{Example} to finalise the processing, we add these instructions 
+\begin{footnotesize}
+\begin{lstlisting}[frame=single,framerule=0pt]
+Options options;
+vector<string>* constants=new vector<string>();
+constants->push_back("N");
+vector<References*> * all_ref=new vector<References*>();
+all_ref->push_back(from_assign_1);
+all_ref->push_back(from_assign_2);
+all_ref->push_back(from_assign_3);
+for(vector<References*>::iterator it=all_ref->begin(); it != all_ref->end(); ++it)
+   (*it)->ComputeDefinitions(constants, all_ref,&sequential_order,ppts,&options);
+\end{lstlisting}
+\end{footnotesize}
+
+\paragraph{Printing Results}
+A simple pretty print loop looks like:
+\begin{footnotesize}
+\begin{lstlisting}[frame=single,framerule=0pt]
+for(vector<References*>::iterator it=all_ref->begin(); it != all_ref->end(); ++it)
+   (*it)->Print(1);
+\end{lstlisting}
+\end{footnotesize}
+% After building affine constraints, the exact source (maximum lexicographic) is computed in \verb|Quast* ElementaryDependence::quast|. Otherelse, an extra stuff is done :
+% 
+% \begin{itemize}
+%  \item Relax the non affine constrains, and check whether affine ones are upheld.
+%  \item If it is the case, a parameter of the maximum is computed in 
+% \begin{lstlisting}[frame=single,framerule=0pt]
+% vector<string> ElementaryDependence::parameter_of_maximum
+% \end{lstlisting}
+% and some properties on it are given in
+% \begin{lstlisting}[frame=single,framerule=0pt]
+% SimpleDemonstrator* ElementaryDependence::properties 
+% \end{lstlisting}
+% 
+% These properties will be used later in order to perform the FADA advanced analysis.
+% \end{itemize}
+% 
+% All that is done by the simple call of 
+% 
+% \begin{lstlisting}[frame=single,framerule=0pt]
+% void 
+% ElementaryDependence::BuildAndComputeMax(vector<string>*__read_iteration, 
+%                vector<string>* __global_parameters, Program* __pgm)
+% \end{lstlisting}
+% 
+% where :
+% \begin{itemize}
+%  \item \verb|__read_iteration| is a fixed iteration obtained by adding the suffix \verb|current_| to the enclosing counters (we strongly recommend the function \\ \verb|vector<string>  ParameterizeReadIteration(vector<string>* __lc)| in \verb|global.cpp|).
+%  \item \verb|__global_parameters| : are the read-only scalars of the entire program.
+%  \item \verb|__pgm| is used for one only aim : check wether there is a textual order between two statements, for that the current implementation need the AST to check out that. See : 
+% \begin{lstlisting}[frame=single,framerule=0pt]
+% bool Program::IsTextuallyBefore(int __id1, int __id2,
+%                                  vector<string>* common_loops)|). 
+% \end{lstlisting}
+% 
+% \end{itemize}
+% 
+% 
+% 
+% Here we can say that both $S1$ and $S2$ have a textual order with S3, so we have to consider the deep 1 if $S1$ and\/or $S2$ are possible sources for a variable read by $S3$. However, there is no textual order between $S1$ and $S2$, it is meaningless to check whether there is a dependence between then for the same iteration.
+% Relieving this kind of information can implicate a faster FADA analysis, and eventually much more precise results.
+% 
+% 
+% After building a correct schedule in the right order for all read variables in the entire program, we can proceed to the evaluation of their sources by calling \verb|void Program::ComputeSourcesForAllReadVariables(bool)|, results are provided in \verb|Read_Reference::definition|.
+% 

@@ -1,0 +1,60 @@
+\section{Introduction}
+
+\subsection{What is FADA Toolkit ?}
+ {\it FADA Toolkit} is a partial implementation of the FADA (Fuzzy Array Dataflow Analysis), which is an instance-wise dependence analysis for non static control programs, sometimes called {\it irregular} programs. The advantages of FADAlib are:
+
+\begin{itemize}
+    \item It extends the Feautrier's ADA analysis \cite{ada_feautrier}, so it has full support for static control programs.
+    \item It provides support for many kinds of control flow irregularities, resulting in better precision for data flow analysis. Such irregularities may be on memory accesses (indirection, non-affine indexes) and on irregular control structures (while, if-then-else). In some cases, FADA can provide more precise analysis results, while the classical ADA approach simply fail to take onto account these control structures.
+\end{itemize}
+
+For detailed information about the FADA analysis, please refer to FADA Toolkit website \cite{fadalib_website}.
+
+\subsection{Definitions}
+Here, we summarise some recurrent terms used in the literature and this manual.
+\begin{description}
+ \item[Parameters or symbolic constants] are scalars kept unchanged within the analysed scope.
+ \item[A loop counter] is the induction variable of a loop. FADAlib considers that loop counters are {\it the identifiers} of their loops.
+ \item[An affine constraint] on parameters and loop counters. It can be written as : 
+
+\begin{small} 
+\begin{math}
+ A.X+B.P \leq c
+\end{math}\\
+where :\\
+
+$A,B$ vectors of integers, $c$ an integer constant\\
+$X$ a vector of loop counters\\
+$P$ a vector of symbolic constants\\
+\end{small}
+
+
+ \item[A reference] is a read and/or written variable and/or array cell in the program to be analysed.
+ \item[A statement] can be an assignment or a control construct. We assume that it reads and/or writes \textbf{references}.
+ \item[An iteration vector of a statement] is an ordered vector of all its enclosing loops (defined by their loop counters).
+ \item[An operation] is an instance of a statement. The Operations of a statement enclosed by one single loop can be distinguished by the number of iterations. If the statement is enclosed by multiple loops, operations can be distinguished by the vector of iterations domain.
+ \item[A statement's domain] is a set of conditions on loop counters for which the statement can be executed.
+ \item[A quast (QUasi Affine Selection Tree)] is a binary tree expressing a disjunction of polyhedra. It expresses all the possible sources of a read references.
+ \item[The source (or definition) of read reference ] is the {\it operation} that produces the value of the variable read by the parametrised read operation. The sources are given inside the \textbf{quast}.
+\end{description}
+
+\subsection{The Limitations of FADA}
+As for array dataflow techniques, \verb|FADA| supports only scalar and array references. It supposes that memory locations can be distinguished using array names and access indexes. Access shapes based on pointer indirection and aliasing between array cells are not supported by the \verb|FADA| approach. It is so for the current version of the implementation.
+
+In the remaining of the manual, we use the term FADA to specify the theoretical concept studied in \cite{barthou_thesis}. The terms \verb|FADAtool| and \verb|FADAlib| are used for the command line version of our FADA toolkit, and for the C++ library version resp. Both \verb|FADAtool| and \verb|FADAlib| share a common \verb|FADAcore| as illustrated in Figure~\ref{fig:fadatoolkit}.
+\begin{figure}
+\begin{center}
+ \includegraphics[width=8cm]{fada-software.pdf}
+\end{center}
+\caption{FADA Toolkit}
+\label{fig:fadatoolkit}
+\end{figure} 
+
+We precise, here, that some of these limitations can be bypassed without undermining the correctness of dataflow results. Some well-known transformations can be applied automatically on realistic programs in order to fit our input conditions. Here some examples:
+\begin{itemize}
+ \item Convert structures into arrays. \verb|s.a| is equivalent to \verb|s[offset(a,s)]| or \verb|s+offset(a,s)|, where \verb|offset(a,s)| is the offset (an integer) of \verb|a| in the structure \verb|s|.
+ \item The pointer-to-array access conversion is a classic problem. It can recover the array traversal by a pointer into a program with array access.
+ \item In all cases an indirection with a pointer \verb|*ptr| can be simulated as an array cell \verb|Mem[Mem[ptr]]|, where \verb|Mem| should represents the global memory.
+\end{itemize}
+
+These transformation can be done automatically so the FADAlib can be applied.

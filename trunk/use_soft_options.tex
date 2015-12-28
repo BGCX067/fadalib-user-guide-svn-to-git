@@ -1,0 +1,66 @@
+After a successful installation, FADAtool can be invocated this way :
+
+\begin{verbatim}
+ $ fada [options]
+\end{verbatim}
+
+\label{adaan_options}
+
+Where options are :
+
+\begin{itemize}
+ \item \verb|--input=file| or \verb|-i file|    : specify the input file.
+ \item Options relative to the FADA processing :
+ \begin{itemize}
+	\item \verb|--structural-analysis| or \verb|-s| :  apply the structural analysis.
+
+
+ \end{itemize}
+ \item Output and printing options:
+    \begin{itemize}
+        \item \verb|--dir=dir| or \verb|-d dir|        : set \verb|dir| as working and output directory (\verb|./| is taken as default value). if does not exist it will be created.
+	\item \verb|--format=FORMAT| or \verb|-f FORMAT|, where \verb|FORMAT| in :
+	\begin{itemize}
+		\item \verb|html+tex| : print definitions in browsable html pages.
+		\item \verb|html+dot| : print definitions in browsable html pages.
+		\item \verb|console| : print definitions in browsable html pages.
+	\end{itemize}
+
+        \item \verb|--tree| or \verb|-T|        : print definitions in Quasi Affine Selection trees.
+        \item \verb|--bottom| or \verb|-b|        : consider a node "bottom" for not initialized variables in the dataflow graph.
+        \item \verb|--log| or\verb|-L|               : write results in a file.
+        \item \verb|--fuzzy| or \verb|-f|            : remove constraints involving new parameters.
+        \item \verb|--dataflowgraph| or \verb|-g|    : generate a dataflow graph.
+        \item \verb|--verbose| or \verb|-v|          : print extra information for debugging.
+        \item \verb|--help| or \verb|-h|        : print a help screen and exit.
+        \item \verb|--version| or \verb|-V|          : print the version and exit.
+     \end{itemize}
+\end{itemize}
+
+Examples :
+\begin{verbatim}
+  $ fada -i input.c 
+\end{verbatim}
+Perform dataflow analysis, results are printed in the standard output file.\\
+\begin{verbatim}
+$ fada -i input.c -H -d dir 
+\end{verbatim}
+Results are provided in html pages created in the directory \verb|dir|.\\
+
+\begin{verbatim}
+ $ fada -i input.c -g -d dir
+\end{verbatim}
+Compute the dataflow graph (automatically converted into a png picture), the file is created in the directory \verb|dir|.\\
+\begin{verbatim}
+   $ fada -i input.c -cg
+\end{verbatim}
+Show (on edges) the condition of validity of dependence.\\
+
+
+\subsection{Input file}
+
+The input file have to be a program or a function written in a subset of the C-language. Some restrictions are to be taken in account :
+\begin{itemize}
+ \item No use of \verb|struct|, structures have to be converted into arrays. For example : \verb|s.tab[i]| can be converted into \verb|s[offset_tab][i]| where \verb|offset_tab| is the offset of the field \verb|tab| in the structure \verb|s|.
+ \item \verb|for| loops are only those who express an \textbf{upper} and \textbf{lower bounds} for\textbf{ one single loop counter}. Otherwise, they have to be converted to \verb|while| loops. Currently, the only supported stride is 1.
+\end{itemize}
